@@ -14,6 +14,7 @@
 
 var URLSafeBase64 = require('urlsafe-base64');
 var Buffer = require('buffer').Buffer;
+var jsrsasign = require("jsrsasign");
 
 var altU2F = function(parameters) {
 
@@ -103,9 +104,11 @@ var altU2F = function(parameters) {
 	/**
 	 * Set the signature
 	 */
-	this.sign = function(signSessionData, callback) {
+	this.sign = function(appId, challenge, regKeys, callback) {
 
-		this.signSessionData = signSessionData;
+		this.appId = appId;
+		this.challenge = challenge;
+		this.regKeys = regKeys;
 		this.callback = callback;
 
 		this.userPresenceConfirmed = function() {
@@ -113,15 +116,24 @@ var altU2F = function(parameters) {
 			var keys = parent.m.getStoredKeys();
 
 			// First retrieve the private key based on the provided keyhandle
-			var key = keys[this.signSessionData.keyHandle];
+			var keyHandle = null;
+
+			for(k in this.regKeys){
+				if(keys[regKeys[k].keyHandle]){
+					keyHandle = regKeys[k].keyHandle;
+				}
+			}
+
+			//TODO: throw exception if no key
+			var key = keys[keyHandle];
 
 			// Increase the counter to prevent replay attacks
-			var counter = keys[this.signSessionData.keyHandle].counter++;
+			var counter = keys[keyHandle].counter++;
 
 			parent.m.storeKeys(keys);
 
 			// Initialze signing
-			var sig = new KJUR.crypto.Signature({
+			var sig = new jsrsasign.KJUR.crypto.Signature({
 				"alg" : 'SHA256withECDSA'
 			});
 
@@ -132,7 +144,7 @@ var altU2F = function(parameters) {
 
 			var clientData = {
 				"typ" : "navigator.id.getAssertion",
-				"challenge" : this.signSessionData.challenge,
+				"challenge" : this.challenge,
 				"origin" : parent.getOrigin()
 			};
 
@@ -140,7 +152,7 @@ var altU2F = function(parameters) {
 
 			const clientDataStringBuffer = Buffer.from(clientDataString);
 
-			const appIdHash = Buffer.from(parent.sha256(this.signSessionData.appId), 'hex');
+			const appIdHash = Buffer.from(parent.sha256(this.appId), 'hex');
 			const reservedByte = Buffer.from('01', 'hex');
 			const clientDataHash = Buffer.from(parent.sha256(clientDataString), 'hex');
 
@@ -162,11 +174,10 @@ var altU2F = function(parameters) {
 
 			// call the callback
 			this.callback({
-				sessionId : this.signSessionData.sessionId,
 				clientData : URLSafeBase64.encode(clientDataStringBuffer),
 				signatureData : URLSafeBase64.encode(signatureData),
-				appId : this.signSessionData.appId,
-				keyHandle : this.signSessionData.keyHandle,
+				appId : this.appId,
+				keyHandle : keyHandle,
 			});
 
 			parent.m.onFinishSign();
@@ -178,15 +189,16 @@ var altU2F = function(parameters) {
 	};
 
 	/**
+	 * registeredKeys is ignored
 	 * Returns a registrationResponse as defined in
 	 * https://fidoalliance.org/specs/fido-u2f-v1.0-nfc-bt-amendment-20150514/fido-u2f-javascript-api.html#idl-def-RegisterResponse
 	 *
 	 * @param registerRequest
 	 * @returns
 	 */
-	this.register = function(registerRequest, callback) {
+	this.register = function(appId, registerRequests, registeredKeys, callback) {
 
-		this.registerRequest = registerRequest;
+		this.registerRequest = registerRequests[0];
 		this.callback = callback;
 
 		/**
@@ -195,12 +207,12 @@ var altU2F = function(parameters) {
 		this.userPresenceConfirmed = function() {
 
 			// # Load the attestation certificate and the related private key
-			var certificate = new X509();
+			var certificate = new jsrsasign.X509();
 			certificate.readCertPEM(parent.m.getAttestationKeys().certificateAttestation);
-			var decryptedPrivateKey = KEYUTIL.getKey(parent.m.getAttestationKeys().privateKeyAttestation, "password");
+			var decryptedPrivateKey = jsrsasign.KEYUTIL.getKey(parent.m.getAttestationKeys().privateKeyAttestation, "password");
 
 			// # Generate the user public and private keys
-			var ec = new KJUR.crypto.ECDSA({
+			var ec = new jsrsasign.KJUR.crypto.ECDSA({
 				"curve" : 'secp256r1'
 			});
 
@@ -225,7 +237,7 @@ var altU2F = function(parameters) {
 
 			var clientData = {
 				"typ" : "navigator.id.finishEnrollment",
-				"challenge" : registerRequest.challenge, // challenge
+				"challenge" : this.registerRequest.challenge, // challenge
 				// contains base64
 				// encoded version.
 				"origin" : parent.getOrigin()
@@ -244,7 +256,7 @@ var altU2F = function(parameters) {
 
 			// The application parameter [32 bytes] from the registration
 			// request message
-			const appIdHash = Buffer.from(parent.sha256(registerRequest.appId), 'hex');
+			const appIdHash = Buffer.from(parent.sha256(this.registerRequest.appId), 'hex');
 
 			// The hash of the client data, containing the challenge
 			const clientDataHash = Buffer.from(parent.sha256(clientDataString), 'hex');
@@ -258,7 +270,7 @@ var altU2F = function(parameters) {
 			// /Combine all signature bytes
 			const signatureBytes = Buffer.concat([ reservedByte0, appIdHash, clientDataHash, keyHandleBuffer, userPublicKey ]);
 
-			var sig = new KJUR.crypto.Signature({
+			var sig = new jsrsasign.KJUR.crypto.Signature({
 				"alg" : 'SHA256withECDSA'
 			});
 
@@ -287,6 +299,8 @@ var altU2F = function(parameters) {
 			// Return the registration data
 			var registrationResponse = {
 				version : "U2F_V2",
+				appId: this.registerRequest.appId,
+				challenge: this.registerRequest.challenge,
 				clientData : URLSafeBase64.encode(clientDataStringBuffer),
 				registrationData : URLSafeBase64.encode(registrationData),
 			};
@@ -306,7 +320,7 @@ var altU2F = function(parameters) {
 	 */
 	this.sha256 = function(input) {
 
-		var md = new KJUR.crypto.MessageDigest({
+		var md = new jsrsasign.KJUR.crypto.MessageDigest({
 			alg : "sha256",
 			prov : "cryptojs"
 		});
@@ -346,7 +360,7 @@ var altU2F = function(parameters) {
 	(function(proxied) {
 		window.u2f.sign = function() {
 
-			parent.sign(arguments[0][0], arguments[1]);
+			parent.sign(arguments[0], arguments[1], arguments[2], arguments[3]);
 
 			return proxied.apply(this, arguments);
 		};
@@ -355,11 +369,12 @@ var altU2F = function(parameters) {
 	(function(proxied) {
 		window.u2f.register = function() {
 
-			console.log(parent);
-			parent.register(arguments[0][0], arguments[2]);
+			parent.register(arguments[0], arguments[1], arguments[2], arguments[3]);
 
 			return proxied.apply(this, arguments);
 		};
 	})(window.u2f.register);
 
 }
+
+new altU2F({});

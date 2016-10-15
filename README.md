@@ -14,6 +14,12 @@ Note: This script is work in progress.
 
 # Example usage
 
+Build the script
+
+~~~.bash
+browserify altu2f.js > altu2fsimple.js
+~~~
+
 Include both the [buffer](https://github.com/feross/buffer) module, the [jsrsasign](https://kjur.github.io/jsrsasign/), and the `altu2f.js` script on a page. Then, call `new altU2F()`.
 
 ~~~.html
