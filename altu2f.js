@@ -16,7 +16,9 @@ var URLSafeBase64 = require('urlsafe-base64');
 var Buffer = require('buffer').Buffer;
 var jsrsasign = require("jsrsasign");
 
-var altU2F = function(parameters) {
+window.AltU2F = {};
+
+window.AltU2F.init = function(parameters) {
 
 	var parent = this;
 
@@ -376,5 +378,3 @@ var altU2F = function(parameters) {
 	})(window.u2f.register);
 
 }
-
-new altU2F({});

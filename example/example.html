@@ -1,20 +1,77 @@
-<!--
-TODO: Create an example with how the software implementation of the U2F authenticator can be used.
--->
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Example implementation</title>
+<title>Example usage</title>
 
-<script type="text/javascript" src="js/u2f-api.js"></script>
-<script type="text/javascript" src="js/altu2f-compiled.js"></script>
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+<style type="text/css">
+body .modal-dialog .modal-header{
+	border-style: none;
+}
+
+body .modal-body{
+	text-align: center;
+}
+</style>
 
 </head>
 
 <body>
 
+<div class="modal fade" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">This site would like to register this machine ...</h4>
+      </div>
+      <div class="modal-body">
+        <img src="https://pixabay.com/static/uploads/photo/2015/12/08/19/08/castle-1083570_960_720.png" width="100" />
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Deny</button>
+        <button type="button" class="btn btn-success">Approve</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+<script type="text/javascript" src="js/altu2f-compiled.js"></script>
+
+<script type="text/javascript">
+
+//initializes altU2F and extends (proxies) the default u2f.sign and u2f.register methods.
+new AltU2F.init({
+
+	onStartSign: function(caller){
+
+		$('.modal').modal('toggle');
+
+		$('.btn-success').unbind().click(function(){
+			caller.userPresenceConfirmed();
+			$('.modal').modal('toggle');
+		})
+
+	},
+
+	onStartRegister: function(caller){
+
+		$('.modal').modal('toggle');
+
+		$('.btn-success').unbind().click(function(){
+			caller.userPresenceConfirmed();
+			$('.modal').modal('toggle');
+
+		})
+
+	}
+
+});
+</script>
 
 </body>
-
 </html>

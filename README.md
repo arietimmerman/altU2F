@@ -3,9 +3,11 @@
 
 altU2F is a software implementation of the FIDO U2F authenticator.
 
-This script allows you to use U2F technology on clients that do not support U2F. By using this script, one can authenticate to an U2F server with browser that do not support FIDO U2F, such as Firefox and Internet Explorer.
+This script allows you to use U2F technology on clients that do not support U2F. By using this script, one can authenticate to an U2F server with browser that do not support FIDO U2F, such as Safari, Firefox and Internet Explorer.
 
 Note: This script is work in progress.
+
+In the `example` folder you'll find an usage example.
 
 ## What is FIDO U2F?
 
